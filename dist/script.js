@@ -47,76 +47,60 @@
  applyLanguage(lang);button.addEventListener('click',()=>{lang=lang==='es'?'en':'es';applyLanguage(lang);try{localStorage.setItem('jr-language',lang)}catch{}});
 })();
 
-// Each element enters once. Photos keep their authored CSS crop and transforms.
+// Prepare below-fold elements before they enter; observe native scrolling without refresh resets.
 (() => {
- if(!window.gsap || !window.ScrollTrigger) return;
- gsap.registerPlugin(ScrollTrigger);
- const media=gsap.matchMedia();
- let refreshFrame;
- let disposed=false;
- const refresh=()=>{
-  if(disposed)return;
-  cancelAnimationFrame(refreshFrame);
-  refreshFrame=requestAnimationFrame(()=>ScrollTrigger.refresh());
+ if(!window.gsap || !('IntersectionObserver' in window))return;
+ const motion=window.matchMedia('(prefers-reduced-motion: reduce)');
+ const completed=new WeakSet();
+ let observer;
+ let records=[];
+ const reset=()=>{
+  observer?.disconnect();
+  records.forEach(record=>{
+   record.tween?.progress(1);
+   gsap.set(record.element,{clearProps:record.photo?'opacity':'transform,opacity'});
+  });
+  records=[];
  };
- media.add({motion:'(prefers-reduced-motion: no-preference)',desktop:'(min-width: 761px)'},context=>{
-  if(!context.conditions.motion)return;
-  const desktop=context.conditions.desktop;
-  const records=[];
-  const reveal=(element,photo=false)=>{
-   // Never replay an entrance on content already visible or above a restored scroll position.
-   if(element.getBoundingClientRect().top<window.innerHeight*.94)return;
-   let tween;
-   let played=false;
-   const clearProps=photo?'opacity':'transform,opacity';
-   const play=()=>{
-    if(played)return;
-    played=true;
-    const distance=desktop?24:10;
-    const heading=/^H[1-3]$/.test(element.tagName);
-    const from=photo?{opacity:.75}:{x:heading?-distance:distance,opacity:.65};
-    const to=photo?{opacity:1}:{x:0,opacity:1};
-    tween=gsap.fromTo(element,from,{...to,duration:desktop?.55:.4,ease:'power2.out',overwrite:'auto',clearProps});
-   };
-   const trigger=ScrollTrigger.create({trigger:element,start:'clamp(top 94%)',once:true,onEnter:play,onLeave:()=>tween?.progress(1)});
-   records.push({element,trigger,getTween:()=>tween,clearProps});
-  };
-  // Animate text itself, never its containing grid, links, buttons or entire sections.
-  document.querySelectorAll('main h1:not(.hero-brand), main h2, main h3, main p, .venue-list li, .live-gallery img, .bio-photo img, .social-teaser figure img, .event-hero figure img').forEach(element=>{
-   reveal(element,element.tagName==='IMG');
-  });
-  const focus=event=>records.forEach(record=>{
-   if(record.element===event.target || record.element.contains(event.target))record.getTween()?.progress(1);
-  });
-  const paused=new Set();
-  const visibility=()=>{
-   if(document.hidden){
-    records.forEach(record=>{const tween=record.getTween();if(tween?.isActive()){paused.add(tween);tween.pause()}});
-   }else{paused.forEach(tween=>tween.resume());paused.clear()}
-  };
-  document.addEventListener('focusin',focus);
-  document.addEventListener('visibilitychange',visibility);
-  return ()=>{
-   document.removeEventListener('focusin',focus);
-   document.removeEventListener('visibilitychange',visibility);
-   records.forEach(record=>{
-    record.trigger.kill();record.getTween()?.kill();
-    gsap.set(record.element,{clearProps:record.clearProps});
+ const setup=()=>{
+  reset();
+  if(motion.matches)return;
+  const desktop=window.matchMedia('(min-width: 761px)').matches;
+  const elements=[...document.querySelectorAll('main h1:not(.hero-brand), main h2, main h3, main p, .venue-list li, .live-gallery img, .bio-photo img, .social-teaser figure img, .event-hero figure img')];
+  // Measure all positions before writing any style.
+  const measurements=elements.map(element=>({element,top:element.getBoundingClientRect().top}));
+  const byElement=new Map();
+  observer=new IntersectionObserver(entries=>{
+   entries.forEach(entry=>{
+    if(!entry.isIntersecting)return;
+    const record=byElement.get(entry.target);
+    if(!record || completed.has(record.element))return;
+    completed.add(record.element);
+    observer.unobserve(record.element);
+    const target=record.photo?{opacity:1}:{x:0,opacity:1};
+    record.tween=gsap.to(record.element,{...target,duration:record.photo?1.3:1.15,ease:'power1.inOut',overwrite:'auto',clearProps:record.photo?'opacity':'transform,opacity'});
    });
-   paused.clear();
-  };
+  },{rootMargin:'0px 0px -4% 0px',threshold:0});
+  measurements.forEach(({element,top})=>{
+   if(completed.has(element) || top<window.innerHeight){completed.add(element);return}
+   const photo=element.tagName==='IMG';
+   const heading=/^H[1-3]$/.test(element.tagName);
+   const distance=desktop?30:14;
+   const record={element,photo,tween:null};
+   records.push(record);byElement.set(element,record);
+   gsap.set(element,photo?{opacity:0}:{x:heading?-distance:distance,opacity:0});
+   observer.observe(element);
+  });
+ };
+ const focus=event=>records.forEach(record=>{
+  if(record.element===event.target || record.element.contains(event.target)){
+   observer?.unobserve(record.element);completed.add(record.element);
+   record.tween?.progress(1);
+   gsap.set(record.element,{clearProps:record.photo?'opacity':'transform,opacity'});
+  }
  });
- window.addEventListener('jr:language',refresh);
- const pendingImages=[...document.querySelectorAll('img')].filter(img=>!img.complete);
- pendingImages.forEach(img=>img.addEventListener('load',refresh,{once:true}));
- if(document.fonts)document.fonts.ready.then(refresh);
- // The back/forward cache retains the page and its animation state.
- window.addEventListener('pageshow',refresh);
- window.addEventListener('pagehide',event=>{
-  if(event.persisted)return;
-  disposed=true;cancelAnimationFrame(refreshFrame);media.revert();
-  window.removeEventListener('jr:language',refresh);
-  window.removeEventListener('pageshow',refresh);
-  pendingImages.forEach(img=>img.removeEventListener('load',refresh));
- });
+ motion.addEventListener('change',setup);
+ document.addEventListener('focusin',focus);
+ window.addEventListener('pagehide',event=>{if(!event.persisted)reset()});
+ setup();
 })();
