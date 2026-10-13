@@ -1,0 +1,7 @@
+{
+  "name": "juanfra-ruiz-dj",
+  "private": true,
+  "scripts": {
+    "build": "node scripts/build-vercel.mjs"
+  }
+}
