@@ -1,16 +1,21 @@
 @font-face {
-  font-family: 'Instrument Sans';
+  font-family: 'Barlow';
   font-style: normal;
-  font-weight: 400;
-  font-stretch: normal;
+  font-weight: 300;
   font-display: swap;
-  src: url(/assets/instrument-sans-400.ttf) format('truetype');
+  src: url(/assets/barlow-300.ttf) format('truetype');
 }
 @font-face {
-  font-family: 'Instrument Sans';
+  font-family: 'Barlow';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url(/assets/barlow-400.ttf) format('truetype');
+}
+@font-face {
+  font-family: 'Barlow';
   font-style: normal;
   font-weight: 500;
-  font-stretch: normal;
   font-display: swap;
-  src: url(/assets/instrument-sans-500.ttf) format('truetype');
+  src: url(/assets/barlow-500.ttf) format('truetype');
 }

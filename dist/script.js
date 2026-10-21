@@ -66,7 +66,7 @@
   reset();
   if(motion.matches)return;
   const desktop=window.matchMedia('(min-width: 761px)').matches;
-  const elements=[...document.querySelectorAll('main h1:not(.hero-brand), main h2, main h3, main p, .venue-list li, .live-gallery img, .bio-photo img, .social-teaser figure img, .event-hero figure img')];
+  const elements=[...document.querySelectorAll('main h1:not(.hero-brand), main h2, main h3, main p, .venue-name, .venue-mark > span, .live-gallery img, .bio-photo img, .social-teaser figure img, .event-hero figure img')];
   // Measure all positions before writing any style.
   const measurements=elements.map(element=>({element,top:element.getBoundingClientRect().top}));
   const byElement=new Map();
